@@ -105,6 +105,7 @@ export default function Home() {
     }, 10000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -180,7 +181,7 @@ export default function Home() {
     if (!rawText) return;
 
     const lines = rawText.split('\n');
-    let currentTodos = [...todos];
+    const currentTodos = [...todos];
     const currentMinOrder = currentTodos.length > 0 ? Math.min(...currentTodos.map(t => t.sortOrder || 0)) : 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -319,11 +320,12 @@ export default function Home() {
 
   return (
     <div className="container">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Tasks</h1>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h1 style={{ margin: 0 }}>Tasks</h1>
         <button 
           onClick={handleLogout} 
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem', padding: '8px', marginTop: '4px' }}
+          className="logout-btn"
         >
           Logout
         </button>
