@@ -1,0 +1,19 @@
+{
+  "name": "Premium Tasks",
+  "short_name": "Tasks",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#de4c4a",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml"
+    }
+  ]
+}
