@@ -4,6 +4,7 @@
   "description": "A premium, beautifully designed todo list and task planner application.",
   "start_url": "/",
   "id": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "prefer_related_applications": false,
