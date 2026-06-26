@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Sortable from 'sortablejs';
 
 type Todo = {
@@ -8,7 +9,9 @@ type Todo = {
   text: string;
   completed: boolean;
   sortOrder: number;
-  isEditing?: boolean;
+  hasReminder?: boolean;
+  reminderDate?: string;
+  reminderTime?: string;
 };
 
 export default function Home() {
@@ -17,13 +20,36 @@ export default function Home() {
   const taskListRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [loading, setLoading] = useState(true);
+  const latestTodos = useRef<Todo[]>([]);
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch (e) {
+      console.error('Logout failed', e);
+    }
+  };
+
+  useEffect(() => {
+    latestTodos.current = todos;
+  }, [todos]);
+
+  // Modal state
+  const [editingTodoIndex, setEditingTodoIndex] = useState<number | null>(null);
+  const [editPopupText, setEditPopupText] = useState('');
+  const [editHasReminder, setEditHasReminder] = useState(false);
+  const [editReminderDate, setEditReminderDate] = useState('');
+  const [editReminderTime, setEditReminderTime] = useState('');
 
   const fetchTodos = async () => {
     try {
       const res = await fetch('/api/todos');
       const data = await res.json();
       if (data.success) {
-        const fetchedTodos = data.data.map((t: Todo) => ({ ...t, isEditing: false }));
+        const fetchedTodos = data.data.map((t: Todo) => ({ ...t }));
         setTodos(sortTodos(fetchedTodos));
       }
     } catch (error) {
@@ -35,6 +61,50 @@ export default function Home() {
 
   useEffect(() => {
     fetchTodos();
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      Notification.requestPermission();
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      let changed = false;
+      const currentTodos = latestTodos.current;
+      const updatedTodos = currentTodos.map(todo => {
+        if (todo.hasReminder && todo.reminderDate && todo.reminderTime) {
+          const reminderDateTime = new Date(`${todo.reminderDate}T${todo.reminderTime}`);
+          if (now >= reminderDateTime) {
+            if (Notification.permission === 'granted') {
+              new Notification('Task Reminder', {
+                body: todo.text,
+                icon: '/icon-192x192.png'
+              });
+            } else {
+              alert(`Reminder: ${todo.text}`);
+            }
+            changed = true;
+            return { ...todo, hasReminder: false };
+          }
+        }
+        return todo;
+      });
+
+      if (changed) {
+        setTodos(sortTodos(updatedTodos));
+        const triggered = updatedTodos.filter((t, i) => currentTodos[i].hasReminder && !t.hasReminder);
+        triggered.forEach(t => {
+          if (t._id) {
+             fetch(`/api/todos/${t._id}`, {
+               method: 'PUT',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ hasReminder: false })
+             });
+          }
+        });
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -42,7 +112,12 @@ export default function Home() {
       Sortable.create(taskListRef.current, {
         animation: 200,
         ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        dragClass: 'sortable-drag',
         fallbackTolerance: 3,
+        forceFallback: true,
+        delay: 500,
+        delayOnTouchOnly: true,
         filter: '.completed-task, .edit-input, .btn-icon, .todo-checkbox',
         preventOnFilter: false,
         onEnd: async function (evt) {
@@ -123,7 +198,7 @@ export default function Home() {
           });
           const data = await res.json();
           if (data.success) {
-            currentTodos.push({ ...data.data, isEditing: false });
+            currentTodos.push({ ...data.data });
           }
         } catch (error) {
           console.error('Failed to add todo:', error);
@@ -166,33 +241,67 @@ export default function Home() {
     }
   };
 
-  const enableEdit = (index: number) => {
-    setTodos((prev) => {
-      const next = [...prev];
-      next[index].isEditing = true;
-      return next;
-    });
+  const openEditModal = (index: number) => {
+    const todo = todos[index];
+    setEditingTodoIndex(index);
+    setEditPopupText(todo.text);
+    setEditHasReminder(todo.hasReminder || false);
+    setEditReminderDate(todo.reminderDate || '');
+    setEditReminderTime(todo.reminderTime || '');
   };
 
-  const saveEdit = async (index: number, newText: string) => {
-    const text = newText.trim();
-    if (text === '') {
-      await deleteTodo(index);
-    } else {
-      const todo = todos[index];
-      setTodos((prev) => {
-        const next = [...prev];
-        next[index].text = text;
-        next[index].isEditing = false;
-        return next;
-      });
+  const closeEditModal = () => {
+    setEditingTodoIndex(null);
+  };
 
-      if (todo._id) {
-        await fetch(`/api/todos/${todo._id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
-        });
+  const saveEditModal = async () => {
+    if (editingTodoIndex === null) return;
+    
+    const text = editPopupText.trim();
+    if (text === '') {
+      await deleteTodo(editingTodoIndex);
+      closeEditModal();
+      return;
+    }
+
+    const todo = todos[editingTodoIndex];
+    const updateData: Partial<Todo> = { 
+      text,
+      hasReminder: editHasReminder,
+      reminderDate: editHasReminder ? editReminderDate : undefined,
+      reminderTime: editHasReminder ? editReminderTime : undefined,
+    };
+
+    setTodos((prev) => {
+      const next = [...prev];
+      next[editingTodoIndex] = { ...next[editingTodoIndex], ...updateData };
+      return next;
+    });
+
+    closeEditModal();
+
+    if (todo._id) {
+      await fetch(`/api/todos/${todo._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData),
+      });
+    }
+  };
+  
+  const handleReminderToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const enabled = e.target.checked;
+    setEditHasReminder(enabled);
+    if (enabled) {
+      const now = new Date();
+      if (!editReminderDate) {
+        setEditReminderDate(now.toISOString().split('T')[0]);
+      }
+      if (!editReminderTime) {
+        const future = new Date(now.getTime() + 10 * 60000);
+        const hours = future.getHours().toString().padStart(2, '0');
+        const minutes = future.getMinutes().toString().padStart(2, '0');
+        setEditReminderTime(`${hours}:${minutes}`);
       }
     }
   };
@@ -210,8 +319,14 @@ export default function Home() {
 
   return (
     <div className="container">
-      <header>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Tasks</h1>
+        <button 
+          onClick={handleLogout} 
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem' }}
+        >
+          Logout
+        </button>
       </header>
 
       <div className="input-group">
@@ -233,7 +348,7 @@ export default function Home() {
             className={todo.completed ? 'completed-task' : ''}
             onClick={(e) => {
               const target = e.target as HTMLElement;
-              if (todo.isEditing || target.closest('.actions') || target.tagName.toLowerCase() === 'input') {
+              if (target.closest('.actions') || target.tagName.toLowerCase() === 'input') {
                 return;
               }
               toggleTodo(index);
@@ -248,29 +363,16 @@ export default function Home() {
             />
             
             <div className={`todo-content ${todo.completed ? 'completed' : ''}`}>
-              {todo.isEditing ? (
-                <textarea
-                  className="edit-input"
-                  defaultValue={todo.text}
-                  style={{ height: 'auto' }}
-                  rows={2}
-                  autoFocus
-                  onBlur={(e) => saveEdit(index, e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      saveEdit(index, e.currentTarget.value);
-                    }
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                todo.text
+              {todo.text}
+              {todo.hasReminder && todo.reminderDate && todo.reminderTime && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  ⏰ {todo.reminderDate} {todo.reminderTime}
+                </div>
               )}
             </div>
 
             <div className="actions" onClick={(e) => e.stopPropagation()}>
-              <button className="btn-icon" onClick={() => enableEdit(index)}>
+              <button className="btn-icon" onClick={() => openEditModal(index)}>
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                 </svg>
@@ -284,6 +386,54 @@ export default function Home() {
           </li>
         ))}
       </ul>
+
+      {editingTodoIndex !== null && (
+        <div className="modal-overlay" onClick={closeEditModal}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>Edit Todo</h2>
+            <textarea
+              value={editPopupText}
+              onChange={e => setEditPopupText(e.target.value)}
+              rows={3}
+              autoFocus
+            />
+            
+            <label className="reminder-toggle">
+              <input
+                type="checkbox"
+                className="todo-checkbox"
+                checked={editHasReminder}
+                onChange={handleReminderToggle}
+              />
+              Enable Reminder
+            </label>
+            
+            {editHasReminder && (
+              <div className="reminder-inputs">
+                <input
+                  type="date"
+                  value={editReminderDate}
+                  onChange={e => setEditReminderDate(e.target.value)}
+                />
+                <input
+                  type="time"
+                  value={editReminderTime}
+                  onChange={e => setEditReminderTime(e.target.value)}
+                />
+              </div>
+            )}
+            
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={closeEditModal}>Cancel</button>
+              <button className="btn-primary small" onClick={saveEditModal}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <footer className="footer-copyright">
+        copyright 2026 - made by <a href="https://atifhasan.com" target="_blank" rel="noopener noreferrer"><strong>Atif Hasan</strong></a>
+      </footer>
     </div>
   );
 }

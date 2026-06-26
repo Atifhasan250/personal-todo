@@ -1,19 +1,30 @@
 {
-  "name": "Premium Tasks",
+  "name": "Daily Tasks - Todo List",
   "short_name": "Tasks",
-  "start_url": ".",
+  "description": "A premium, beautifully designed todo list and task planner application.",
+  "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#121212",
   "theme_color": "#de4c4a",
   "icons": [
     {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/favicon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "/icon.svg",
-      "type": "image/svg+xml"
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

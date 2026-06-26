@@ -2,18 +2,36 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Premium Tasks",
-  description: "A premium tasks application",
+  title: "Daily Tasks - Todo List by Atif Hasan",
+  description: "A premium, beautifully designed todo list and task planner application built to maximize your productivity. Created by Atif Hasan.",
+  keywords: ["atif hasan todo", "todolist", "todo planner", "tasks", "productivity", "atif hasan", "todo app"],
+  authors: [{ name: "Atif Hasan", url: "https://atifhasan.com" }],
+  metadataBase: new URL("https://todo.atifhasan.com"),
+  openGraph: {
+    title: "Daily Tasks - Todo List",
+    description: "A premium, beautifully designed todo list and task planner application.",
+    url: "https://todo.atifhasan.com",
+    siteName: "Daily Tasks",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Daily Tasks - Todo List",
+    description: "A premium, beautifully designed todo list and task planner application.",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
+    title: "Tasks",
   },
   manifest: "/manifest.json",
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },
       { url: '/favicon.png', type: 'image/png' }
-    ]
+    ],
+    apple: "/favicon.png",
   },
 };
 
@@ -30,10 +48,46 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Daily Tasks",
+    "url": "https://todo.atifhasan.com",
+    "description": "A premium, beautifully designed todo list and task planner application.",
+    "applicationCategory": "ProductivityApplication",
+    "operatingSystem": "All",
+    "author": {
+      "@type": "Person",
+      "name": "Atif Hasan",
+      "url": "https://atifhasan.com"
+    }
+  };
+
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body>
         {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                  }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

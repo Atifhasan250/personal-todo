@@ -1,0 +1,13 @@
+# Daily Tasks
+
+Daily Tasks is a beautifully designed, high-performance todo list and task planner application created by Atif Hasan.
+
+## About the Creator
+Atif Hasan is a developer and creator of Daily Tasks.
+Website: https://atifhasan.com
+
+## Features
+- Task management and reordering
+- Reminders and notifications
+- Premium, dark-themed UI aesthetics
+- Fully offline capable (PWA)
