@@ -8,6 +8,7 @@ export async function GET() {
     const todos = await Todo.find({}).sort({ sortOrder: 1 });
     return NextResponse.json({ success: true, data: todos });
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ success: false }, { status: 400 });
   }
 }
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
     const todo = await Todo.create(body);
     return NextResponse.json({ success: true, data: todo }, { status: 201 });
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ success: false }, { status: 400 });
   }
 }
@@ -30,7 +32,7 @@ export async function PUT(req: Request) {
     const body = await req.json();
     
     // Assuming body is an array of objects: { _id, sortOrder }
-    const updates = body.map((item: any) => ({
+    const updates = body.map((item: { _id: string; sortOrder: number }) => ({
       updateOne: {
         filter: { _id: item._id },
         update: { sortOrder: item.sortOrder },
@@ -43,6 +45,7 @@ export async function PUT(req: Request) {
     
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ success: false }, { status: 400 });
   }
 }
