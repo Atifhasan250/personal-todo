@@ -3,8 +3,10 @@
   "short_name": "Tasks",
   "description": "A premium, beautifully designed todo list and task planner application.",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
   "orientation": "portrait",
+  "prefer_related_applications": false,
   "background_color": "#121212",
   "theme_color": "#de4c4a",
   "icons": [
