@@ -115,44 +115,9 @@ export default function Home() {
       Notification.requestPermission();
     }
 
-    const interval = setInterval(() => {
-      const now = new Date();
-      let changed = false;
-      const currentTodos = latestTodos.current;
-      const updatedTodos = currentTodos.map(todo => {
-        if (todo.hasReminder && todo.reminderDate && todo.reminderTime) {
-          const reminderDateTime = new Date(`${todo.reminderDate}T${todo.reminderTime}`);
-          if (now >= reminderDateTime) {
-            if (Notification.permission === 'granted') {
-              new Notification('Task Reminder', {
-                body: todo.text,
-                icon: '/icon-192x192.png'
-              });
-            } else {
-              alert(`Reminder: ${todo.text}`);
-            }
-            changed = true;
-            return { ...todo, hasReminder: false };
-          }
-        }
-        return todo;
-      });
-
-      if (changed) {
-        const newSorted = sortTodos(updatedTodos);
-        setTodos(newSorted);
-        set('todos', newSorted);
-        const triggered = updatedTodos.filter((t, i) => currentTodos[i].hasReminder && !t.hasReminder);
-        triggered.forEach(t => {
-          if (t._id) {
-             performAction(`/api/todos/${t._id}`, 'PUT', { hasReminder: false });
-          }
-        });
-      }
-    }, 10000);
+    // Local setInterval notification logic removed in favor of Webpushr Push Notifications
 
     return () => {
-      clearInterval(interval);
       window.removeEventListener('online', handleOnline);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,6 +305,25 @@ export default function Home() {
 
     if (todo._id && !todo._id.startsWith(Date.now().toString().substring(0, 5))) {
       performAction(`/api/todos/${todo._id}`, 'PUT', updateData);
+    }
+
+    // Schedule push notification via our API
+    if (updateData.hasReminder && updateData.reminderDate && updateData.reminderTime) {
+      const reminderDateTime = new Date(`${updateData.reminderDate}T${updateData.reminderTime}`);
+      try {
+        await fetch('/api/schedule-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: 'Task Reminder',
+            message: updateData.text,
+            url: 'https://todo.atifhasan.com',
+            sendAt: reminderDateTime.toISOString(),
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to schedule push notification", err);
+      }
     }
   };
   

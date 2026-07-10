@@ -43,6 +43,8 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+import Script from "next/script";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -73,6 +75,9 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <Script id="webpushr-script" strategy="afterInteractive">
+          {`(function(w,d, s, id) {if(typeof(w.webpushr)!=='undefined') return;w.webpushr=w.webpushr||function(){(w.webpushr.q=w.webpushr.q||[]).push(arguments)};var js, fjs = d.getElementsByTagName(s)[0];js = d.createElement(s); js.id = id;js.async=1;js.src = "https://cdn.webpushr.com/app.min.js";fjs.parentNode.appendChild(js);}(window,document, 'script', 'webpushr-jssdk'));webpushr('setup',{'key':'BEMI2BoWgNPmojWqNZom40A6oQ7EL215kxVXJP_Lrj1_8Ecag7-Jq32-NkGqMh_X375TU9177AyOkG8D5hksaZE' });`}
+        </Script>
       </body>
     </html>
   );
