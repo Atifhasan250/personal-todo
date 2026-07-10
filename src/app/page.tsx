@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sortable from 'sortablejs';
 import { get, set } from 'idb-keyval';
+import { UserButton } from '@clerk/nextjs';
 
 type Todo = {
   _id?: string;
@@ -22,17 +23,6 @@ export default function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [loading, setLoading] = useState(true);
   const latestTodos = useRef<Todo[]>([]);
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-      router.refresh();
-    } catch (e) {
-      console.error('Logout failed', e);
-    }
-  };
 
   useEffect(() => {
     latestTodos.current = todos;
@@ -359,13 +349,7 @@ export default function Home() {
     <div className="container">
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ margin: 0 }}>Tasks</h1>
-        <button 
-          onClick={handleLogout} 
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.85rem', padding: '8px', marginTop: '4px' }}
-          className="logout-btn"
-        >
-          Logout
-        </button>
+        <UserButton />
       </header>
 
       <div className="input-group">
