@@ -1,5 +1,4 @@
 import { SignUp, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
-import { dark } from "@clerk/themes";
 
 export default function SignUpPage() {
   return (
@@ -12,7 +11,6 @@ export default function SignUpPage() {
           routing="hash" 
           signInUrl="/login" 
           appearance={{ 
-            baseTheme: dark,
             variables: {
               colorBackground: '#1f1f1f',
               colorForeground: '#eeeeee',
