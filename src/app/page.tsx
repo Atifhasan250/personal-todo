@@ -401,7 +401,11 @@ export default function Home() {
   };
 
   if (loading) {
-    return null; // Or a loading spinner if preferred, keeping it minimal like original HTML
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-color)' }}>
+        <div className="clerk-spinner"></div>
+      </div>
+    );
   }
 
   return (
