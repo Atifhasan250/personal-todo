@@ -5,6 +5,10 @@ const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
   register: true,
+  sw: "webpushr-sw.js",
+  workboxOptions: {
+    importScripts: ['https://cdn.webpushr.com/sw-server.min.js'],
+  }
 });
 
 const nextConfig: NextConfig = {
