@@ -49,7 +49,7 @@ android.keystore
 *.aab
 app/build/
 .gradle/
-app/
+android_app/
 build.gradle
 gradlew
 gradlew.bat

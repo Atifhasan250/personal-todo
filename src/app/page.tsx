@@ -1,10 +1,63 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+
 import Sortable from 'sortablejs';
 import { get, set } from 'idb-keyval';
-import { UserButton } from '@clerk/nextjs';
+import { useUser, useClerk } from '@clerk/nextjs';
+
+function CustomUserButton() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  if (!user) return null;
+
+  return (
+    <div style={{ position: 'relative' }} ref={menuRef}>
+      <img
+        src={user.imageUrl}
+        alt="Profile"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', border: '1px solid var(--border-color)' }}
+      />
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          right: 0,
+          top: '40px',
+          background: '#1e1e1e',
+          border: '1px solid #333',
+          borderRadius: '8px',
+          padding: '8px',
+          zIndex: 50,
+          minWidth: '120px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+        }}>
+          <button 
+            onClick={() => signOut()}
+            style={{ width: '100%', padding: '8px', background: 'transparent', border: 'none', color: '#ff4444', textAlign: 'left', cursor: 'pointer', fontSize: '14px', borderRadius: '4px' }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#333'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Todo = {
   _id?: string;
@@ -209,7 +262,13 @@ export default function Home() {
         } catch (error) {
           console.error('Failed to add todo, saving offline:', error);
           currentTodos.push(newTodoObj);
-          performAction('/api/todos', 'POST', newTodoObj);
+          
+          // Add directly to queue without re-attempting the fetch
+          get('syncQueue').then(queue => {
+            const newQueue = queue || [];
+            newQueue.push({ url: '/api/todos', method: 'POST', body: newTodoObj });
+            set('syncQueue', newQueue);
+          });
         }
       }
     }
@@ -349,7 +408,7 @@ export default function Home() {
     <div className="container">
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h1 style={{ margin: 0 }}>Tasks</h1>
-        <UserButton />
+        <CustomUserButton />
       </header>
 
       <div className="input-group">

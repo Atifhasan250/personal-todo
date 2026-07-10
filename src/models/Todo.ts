@@ -5,6 +5,11 @@ const TodoSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  clientGeneratedId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
   text: {
     type: String,
     required: true,

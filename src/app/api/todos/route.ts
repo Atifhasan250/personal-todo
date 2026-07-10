@@ -27,6 +27,17 @@ export async function POST(req: Request) {
     await dbConnect();
     const body = await req.json();
     body.userId = userId; // Associate task with user
+    
+    // Idempotency check
+    if (body._id) {
+      const existing = await Todo.findOne({ userId, clientGeneratedId: body._id });
+      if (existing) {
+        return NextResponse.json({ success: true, data: existing }, { status: 200 });
+      }
+      body.clientGeneratedId = body._id;
+    }
+
+    delete body._id; // Remove the optimistic offline _id so MongoDB generates a new ObjectId
     const todo = await Todo.create(body);
     return NextResponse.json({ success: true, data: todo }, { status: 201 });
   } catch (error) {

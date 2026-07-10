@@ -420,3 +420,34 @@ button.small {
         top: 2px;
     }
 }
+
+.clerk-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--surface);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: clerk-spin 1s linear infinite;
+}
+
+@keyframes clerk-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+.clerk-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--surface);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: clerk-spin 1s linear infinite;
+}
+
+@keyframes clerk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,16 +1,16 @@
-import { SignIn, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
+import { SignUp, ClerkLoaded, ClerkLoading } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 
-export default function LoginPage() {
+export default function SignUpPage() {
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: 'var(--bg-color)' }}>
       <ClerkLoading>
         <div className="clerk-spinner"></div>
       </ClerkLoading>
       <ClerkLoaded>
-        <SignIn 
+        <SignUp 
           routing="hash" 
-          signUpUrl="/signup" 
+          signInUrl="/login" 
           appearance={{ 
             baseTheme: dark,
             variables: {
