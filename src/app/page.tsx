@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Sortable from 'sortablejs';
+import { get, set } from 'idb-keyval';
 
 type Todo = {
   _id?: string;
@@ -44,13 +45,56 @@ export default function Home() {
   const [editReminderDate, setEditReminderDate] = useState('');
   const [editReminderTime, setEditReminderTime] = useState('');
 
+  const syncOfflineActions = async () => {
+    const queue = (await get('syncQueue')) || [];
+    if (queue.length === 0) return;
+
+    const remaining = [...queue];
+    for (let i = 0; i < queue.length; i++) {
+      const action = queue[i];
+      try {
+        await fetch(action.url, {
+          method: action.method,
+          headers: { 'Content-Type': 'application/json' },
+          body: action.body ? JSON.stringify(action.body) : undefined,
+        });
+        remaining.shift();
+      } catch {
+        break;
+      }
+    }
+    await set('syncQueue', remaining);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const performAction = async (url: string, method: string, body?: any) => {
+    try {
+      await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      const queue = (await get('syncQueue')) || [];
+      queue.push({ url, method, body });
+      await set('syncQueue', queue);
+    }
+  };
+
   const fetchTodos = async () => {
     try {
+      const localTodos = await get('todos');
+      if (localTodos) {
+        setTodos(sortTodos(localTodos));
+      }
+      
       const res = await fetch('/api/todos');
       const data = await res.json();
       if (data.success) {
         const fetchedTodos = data.data.map((t: Todo) => ({ ...t }));
-        setTodos(sortTodos(fetchedTodos));
+        const sorted = sortTodos(fetchedTodos);
+        setTodos(sorted);
+        await set('todos', sorted);
       }
     } catch (error) {
       console.error('Failed to fetch todos:', error);
@@ -61,6 +105,11 @@ export default function Home() {
 
   useEffect(() => {
     fetchTodos();
+    
+    const handleOnline = () => {
+      syncOfflineActions();
+    };
+    window.addEventListener('online', handleOnline);
 
     if (typeof window !== 'undefined' && 'Notification' in window) {
       Notification.requestPermission();
@@ -90,21 +139,22 @@ export default function Home() {
       });
 
       if (changed) {
-        setTodos(sortTodos(updatedTodos));
+        const newSorted = sortTodos(updatedTodos);
+        setTodos(newSorted);
+        set('todos', newSorted);
         const triggered = updatedTodos.filter((t, i) => currentTodos[i].hasReminder && !t.hasReminder);
         triggered.forEach(t => {
           if (t._id) {
-             fetch(`/api/todos/${t._id}`, {
-               method: 'PUT',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ hasReminder: false })
-             });
+             performAction(`/api/todos/${t._id}`, 'PUT', { hasReminder: false });
           }
         });
       }
     }, 10000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('online', handleOnline);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,13 +194,11 @@ export default function Home() {
               ...todo,
               sortOrder: index,
             }));
+            
+            set('todos', updatedTodos);
 
             // Sync with DB
-            fetch('/api/todos', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(updatedTodos.map(t => ({ _id: t._id, sortOrder: t.sortOrder }))),
-            });
+            performAction('/api/todos', 'PUT', updatedTodos.map(t => ({ _id: t._id, sortOrder: t.sortOrder })));
 
             return updatedTodos;
           });
@@ -189,7 +237,7 @@ export default function Home() {
       text = text.replace(/^\d+\.\s*/, '');
 
       if (text) {
-        const newTodoObj = { text: text, completed: false, sortOrder: currentMinOrder - lines.length + i };
+        const newTodoObj = { text: text, completed: false, sortOrder: currentMinOrder - lines.length + i, _id: Date.now().toString() + i }; // Optimistic ID for offline
         
         try {
           const res = await fetch('/api/todos', {
@@ -200,9 +248,13 @@ export default function Home() {
           const data = await res.json();
           if (data.success) {
             currentTodos.push({ ...data.data });
+          } else {
+             currentTodos.push(newTodoObj);
           }
         } catch (error) {
-          console.error('Failed to add todo:', error);
+          console.error('Failed to add todo, saving offline:', error);
+          currentTodos.push(newTodoObj);
+          performAction('/api/todos', 'POST', newTodoObj);
         }
       }
     }
@@ -211,7 +263,9 @@ export default function Home() {
     if (inputRef.current) {
       inputRef.current.style.height = '48px';
     }
-    setTodos(sortTodos(currentTodos));
+    const finalSorted = sortTodos(currentTodos);
+    setTodos(finalSorted);
+    set('todos', finalSorted);
   };
 
   const toggleTodo = async (index: number) => {
@@ -221,24 +275,26 @@ export default function Home() {
     setTodos((prev) => {
       const next = [...prev];
       next[index].completed = updatedStatus;
-      return sortTodos(next);
+      const sorted = sortTodos(next);
+      set('todos', sorted);
+      return sorted;
     });
 
-    if (todo._id) {
-      await fetch(`/api/todos/${todo._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: updatedStatus }),
-      });
+    if (todo._id && !todo._id.startsWith(Date.now().toString().substring(0, 5))) {
+      performAction(`/api/todos/${todo._id}`, 'PUT', { completed: updatedStatus });
     }
   };
 
   const deleteTodo = async (index: number) => {
     const todo = todos[index];
-    setTodos((prev) => prev.filter((_, i) => i !== index));
+    setTodos((prev) => {
+      const newTodos = prev.filter((_, i) => i !== index);
+      set('todos', newTodos);
+      return newTodos;
+    });
 
-    if (todo._id) {
-      await fetch(`/api/todos/${todo._id}`, { method: 'DELETE' });
+    if (todo._id && !todo._id.startsWith(Date.now().toString().substring(0, 5))) {
+      performAction(`/api/todos/${todo._id}`, 'DELETE');
     }
   };
 
@@ -276,17 +332,14 @@ export default function Home() {
     setTodos((prev) => {
       const next = [...prev];
       next[editingTodoIndex] = { ...next[editingTodoIndex], ...updateData };
+      set('todos', next);
       return next;
     });
 
     closeEditModal();
 
-    if (todo._id) {
-      await fetch(`/api/todos/${todo._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData),
-      });
+    if (todo._id && !todo._id.startsWith(Date.now().toString().substring(0, 5))) {
+      performAction(`/api/todos/${todo._id}`, 'PUT', updateData);
     }
   };
   

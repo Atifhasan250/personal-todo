@@ -41,3 +41,23 @@ yarn-error.log*
 next-env.d.ts
 
 /.next
+/.agents/
+
+# Android / Bubblewrap TWA
+android.keystore
+*.apk
+*.aab
+app/build/
+.gradle/
+app/
+build.gradle
+gradlew
+gradlew.bat
+gradle/
+settings.gradle
+gradle.properties
+manifest-checksum.txt
+*.idsig
+
+# Agent skills
+skills-lock.json
